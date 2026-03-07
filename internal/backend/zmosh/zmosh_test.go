@@ -97,7 +97,7 @@ func TestZmoshAttachCommandUDPNoHost(t *testing.T) {
 func TestZmoshDetachCommand(t *testing.T) {
 	b := New()
 	got := b.DetachCommand()
-	want := "zmx detach"
+	want := "zmosh detach"
 	if got != want {
 		t.Errorf("DetachCommand() = %q, want %q", got, want)
 	}
