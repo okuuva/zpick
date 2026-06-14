@@ -20,22 +20,23 @@ type mockBackend struct {
 	detachCmd     string
 }
 
-func (m *mockBackend) Name() string                        { return m.name }
-func (m *mockBackend) BinaryName() string                  { return m.binaryName }
-func (m *mockBackend) SessionEnvVar() string               { return m.sessionEnvVar }
-func (m *mockBackend) InSession() bool                     { return m.inSession }
-func (m *mockBackend) Available() (bool, error)            { return m.available, nil }
-func (m *mockBackend) Version() (string, error)            { return "1.0.0", nil }
-func (m *mockBackend) List() ([]backend.Session, error)    { return m.sessions, nil }
+func (m *mockBackend) Name() string                         { return m.name }
+func (m *mockBackend) BinaryName() string                   { return m.binaryName }
+func (m *mockBackend) SessionEnvVar() string                { return m.sessionEnvVar }
+func (m *mockBackend) InSession() bool                      { return m.inSession }
+func (m *mockBackend) CurrentSessionName() string           { return "" }
+func (m *mockBackend) Available() (bool, error)             { return m.available, nil }
+func (m *mockBackend) Version() (string, error)             { return "1.0.0", nil }
+func (m *mockBackend) List() ([]backend.Session, error)     { return m.sessions, nil }
 func (m *mockBackend) FastList() ([]backend.Session, error) { return m.sessions, nil }
-func (m *mockBackend) Attach(name string) error            { return nil }
+func (m *mockBackend) Attach(name string) error             { return nil }
 func (m *mockBackend) AttachCommand(name, dir string) string {
 	if dir != "" {
 		return m.binaryName + " attach " + name + " --dir " + dir
 	}
 	return m.binaryName + " attach " + name
 }
-func (m *mockBackend) DetachCommand() string { return m.detachCmd }
+func (m *mockBackend) DetachCommand() string  { return m.detachCmd }
 func (m *mockBackend) Kill(name string) error { return nil }
 
 func TestInSessionDetection(t *testing.T) {
@@ -114,9 +115,9 @@ func TestInSessionNewWritesSwitchTarget(t *testing.T) {
 	defer switcher.SetPath("")
 
 	b := &mockBackend{
-		name:          "tmux",
-		detachCmd:     "tmux detach-client",
-		inSession:     true,
+		name:      "tmux",
+		detachCmd: "tmux detach-client",
+		inSession: true,
 	}
 
 	// Simulate the new action when inSession is true

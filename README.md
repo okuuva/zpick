@@ -133,6 +133,7 @@ zp                Interactive TUI picker (default)
 zp list           List sessions (--json for machine-readable)
 zp check          Check dependencies (--json for machine-readable)
 zp attach <n>     Attach or create session
+zp loop           Keep picker alive after each detach
 zp kill <name>    Kill a session
 zp guard          Explain session guard and show commands
 zp install-hook   Add shell hook to .zshrc/.bashrc/.config/fish
@@ -190,7 +191,11 @@ elif [[ "$-" == *i* ]] && _zpick_exec should-autostart >/dev/null 2>&1; then
 fi
 ```
 
-Selecting a session outputs something like `exec tmux new-session -A -s myproject`, which the eval picks up. Pressing Escape outputs nothing, so your shell just continues.
+Selecting a session outputs something like `exec tmux new-session -A -s myproject`, which the eval picks up.
+Pressing Escape outputs nothing, so your shell just continues.
+
+For shells without native eval-friendly hooks, run `zp loop`.
+It keeps a tiny launcher process alive, starts the selected session as a foreground child, and shows the picker again when the session detaches.
 
 ## Optional dependencies
 

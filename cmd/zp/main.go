@@ -75,6 +75,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "zp: %v\n", err)
 			os.Exit(1)
 		}
+	case "loop", "launch-loop":
+		if err := runLoop(); err != nil {
+			fmt.Fprintf(os.Stderr, "zp: %v\n", err)
+			os.Exit(1)
+		}
 	case "in-session":
 		if backend.InAnySession() {
 			os.Exit(0)
@@ -154,8 +159,9 @@ func shouldCheckUpdates(args []string) bool {
 		return false
 	}
 	switch args[0] {
-	case "version", "upgrade", "post-upgrade-hook", "in-session", "should-autostart", "--help", "-h", "help", "guard", "autorun", "resume",
-		"install-guard", "remove-hook", "remove-guard":
+	case "version", "upgrade", "post-upgrade-hook", "in-session",
+		"should-autostart", "--help", "-h", "help", "guard", "autorun", "resume",
+		"loop", "launch-loop", "install-guard", "remove-hook", "remove-guard":
 		return false
 	}
 	for _, arg := range args[1:] {
@@ -174,6 +180,7 @@ Usage:
   zp list           List sessions (--json for machine-readable)
   zp check          Check dependencies (--json for machine-readable)
   zp attach <n>     Attach or create session
+  zp loop           Keep picker alive after each detach
   zp kill <name>    Kill a session
   zp guard          Explain session guard and show commands
   zp install-hook   Add shell hook to .zshrc/.bashrc/.config/fish

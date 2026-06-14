@@ -48,9 +48,39 @@ type Action struct {
 	Name string
 }
 
+type Result struct {
+	Command string
+	Target  *switcher.Target
+}
+
+func (r Result) Empty() bool {
+	return strings.TrimSpace(r.Command) == "" && r.Target == nil
+}
+
+func attachResult(b backend.Backend, action, name, dir string) Result {
+	var prefix string
+	if dir != "" {
+		prefix = fmt.Sprintf("cd %q", dir)
+	}
+	return Result{
+		Command: sessionExec(b, name, prefix),
+		Target:  &switcher.Target{Action: action, Name: name, Dir: dir},
+	}
+}
+
 // Run is the main interactive picker loop.
 // Returns a shell command string to be eval'd by the caller, or empty string.
 func Run(b backend.Backend, version string) (string, error) {
+	result, err := RunResult(b, version)
+	if err != nil {
+		return "", err
+	}
+	return result.Command, nil
+}
+
+// RunResult is the main interactive picker loop.
+// Returns both the shell command for legacy hooks and a structured target for launchers.
+func RunResult(b backend.Backend, version string) (Result, error) {
 	// Detect in-session mode
 	inSession := b.InSession() && os.Getenv("ZPICK") == ""
 	var currentSession string
@@ -63,7 +93,7 @@ func Run(b backend.Backend, version string) (string, error) {
 
 	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	if err != nil {
-		return "", nil
+		return Result{}, nil
 	}
 	defer tty.Close()
 
@@ -71,52 +101,52 @@ func Run(b backend.Backend, version string) (string, error) {
 	if ok, _ := b.Available(); !ok {
 		fmt.Fprintf(tty, "\n  %szp:%s %s not found\n", boldCyan, reset, b.BinaryName())
 		fmt.Fprintf(tty, "  %sRun 'zp check' for full dependency status%s\n\n", dim, reset)
-		return "", nil
+		return Result{}, nil
 	}
 
 	for {
 		sessions, err := b.FastList()
 		if err != nil {
-			return "", fmt.Errorf("failed to list sessions: %w", err)
+			return Result{}, fmt.Errorf("failed to list sessions: %w", err)
 		}
 
 		action, err := showPicker(tty, b, sessions, currentSession)
 		if err != nil {
-			return "", err
+			return Result{}, err
 		}
 
 		switch action.Type {
 		case ActionAttach:
 			if inSession {
 				switcher.Write(switcher.Target{Action: "attach", Name: action.Name})
-				return b.DetachCommand(), nil
+				return Result{Command: b.DetachCommand()}, nil
 			}
-			return sessionExec(b, action.Name, ""), nil
+			return attachResult(b, "attach", action.Name, ""), nil
 		case ActionNew:
 			cwd, _ := os.Getwd()
 			name := CounterName(cwd, sessions)
 			fmt.Fprintf(tty, "\n  %s>%s %s%s%s\n\n", boldGrn, reset, boldWht, name, reset)
 			if inSession {
 				switcher.Write(switcher.Target{Action: "new", Name: name})
-				return b.DetachCommand(), nil
+				return Result{Command: b.DetachCommand()}, nil
 			}
-			return sessionExec(b, name, ""), nil
+			return attachResult(b, "new", name, ""), nil
 		case ActionNewDate:
 			cwd, _ := os.Getwd()
 			name := DateName(cwd)
 			fmt.Fprintf(tty, "\n  %s>%s %s%s%s\n\n", boldGrn, reset, boldWht, name, reset)
 			if inSession {
 				switcher.Write(switcher.Target{Action: "new", Name: name})
-				return b.DetachCommand(), nil
+				return Result{Command: b.DetachCommand()}, nil
 			}
-			return sessionExec(b, name, ""), nil
+			return attachResult(b, "new", name, ""), nil
 		case ActionCustom:
-			cmd, err := handleCustom(tty, b, sessions, inSession)
+			result, err := handleCustom(tty, b, sessions, inSession)
 			if err != nil {
-				return "", err
+				return Result{}, err
 			}
-			if cmd != "" {
-				return cmd, nil
+			if !result.Empty() {
+				return result, nil
 			}
 			continue
 		case ActionZoxide:
@@ -128,9 +158,9 @@ func Run(b backend.Backend, version string) (string, error) {
 			fmt.Fprintf(tty, "\n  %s>%s %s%s%s %s%s%s\n\n", boldGrn, reset, boldWht, name, reset, dim, dir, reset)
 			if inSession {
 				switcher.Write(switcher.Target{Action: "new", Name: name, Dir: dir})
-				return b.DetachCommand(), nil
+				return Result{Command: b.DetachCommand()}, nil
 			}
-			return sessionExec(b, name, fmt.Sprintf("cd %q", dir)), nil
+			return attachResult(b, "new", name, dir), nil
 		case ActionKill:
 			if action.Name == "" {
 				continue // no session selected, redraw
@@ -150,7 +180,7 @@ func Run(b backend.Backend, version string) (string, error) {
 		case ActionRetry:
 			continue
 		case ActionEscape:
-			return "", nil
+			return Result{}, nil
 		}
 	}
 }
@@ -362,20 +392,20 @@ func confirmAndKillAll(tty *os.File, b backend.Backend, sessions []backend.Sessi
 	}
 }
 
-func handleCustom(tty *os.File, b backend.Backend, sessions []backend.Session, inSession bool) (string, error) {
+func handleCustom(tty *os.File, b backend.Backend, sessions []backend.Session, inSession bool) (Result, error) {
 	fmt.Fprintf(tty, "\n  %sname:%s ", magenta, reset)
 
 	customName, ok := readLineRaw(tty)
 	if !ok || customName == "" {
-		return "", nil
+		return Result{}, nil
 	}
 
 	fmt.Fprintf(tty, "\n  %s>%s %s%s%s\n\n", boldGrn, reset, boldWht, customName, reset)
 	if inSession {
 		switcher.Write(switcher.Target{Action: "new", Name: customName})
-		return b.DetachCommand(), nil
+		return Result{Command: b.DetachCommand()}, nil
 	}
-	return sessionExec(b, customName, ""), nil
+	return attachResult(b, "new", customName, ""), nil
 }
 
 // readLineRaw reads a line in raw mode, supporting escape to cancel and backspace.

@@ -83,7 +83,14 @@ func (z *Zmosh) Attach(name string) error {
 	if err != nil {
 		return fmt.Errorf("zmosh not found: %w", err)
 	}
-	return backend.ExecCommand(zmoshPath, []string{"zmosh", "attach", name})
+
+	argv := []string{"zmosh", "attach"}
+	if enabled, host := backend.ReadUDP(); enabled && host != "" {
+		argv = append(argv, "-r", host)
+	}
+	argv = append(argv, name)
+
+	return backend.ExecCommand(zmoshPath, argv)
 }
 
 func (z *Zmosh) DetachCommand() string { return backend.ShellCommand("zmosh") + " detach" }
